@@ -1,40 +1,42 @@
-const fs = require('fs');
-const path = require('path');
-const config = require('../config/config');
+const { upload, deleteFile, getSignedUrl } = require('../config/s3');
 
-// Get file URL
-exports.getFileUrl = (filename) => {
-  if (!filename) return null;
-  // In production, this would be a CDN URL
-  return `/uploads/${filename}`;
+// Handle single file upload
+const uploadSingleFile = (fieldName) => {
+  return upload.single(fieldName);
 };
 
-// Delete file
-exports.deleteFile = async (filename) => {
-  if (!filename) return false;
-  
-  try {
-    const filePath = path.join(config.fileUpload.path, filename);
-    // Check if file exists
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-    return true;
-  } catch (error) {
-    console.error('File delete error:', error);
-    return false;
-  }
+// Handle multiple file uploads
+const uploadMultipleFiles = (fieldName, maxCount = 5) => {
+  return upload.array(fieldName, maxCount);
 };
 
-// Process uploaded files and return array of filenames
-exports.processUploadedFiles = (files) => {
-  if (!files) return [];
+// Delete file from S3
+const removeFile = async (fileKey) => {
+  return await deleteFile(fileKey);
+};
+
+// Get temporary access URL for file
+const getFileUrl = async (fileKey, expiresIn = 3600) => {
+  return await getSignedUrl(fileKey, expiresIn);
+};
+
+// Process uploaded file data
+const processUploadedFile = (file) => {
+  if (!file) return null;
   
-  // Handle single file
-  if (!Array.isArray(files)) {
-    return [files.filename];
-  }
-  
-  // Handle multiple files
-  return files.map(file => file.filename);
+  return {
+    key: file.key,
+    location: file.location,
+    originalName: file.originalname,
+    mimeType: file.mimetype,
+    size: file.size
+  };
+};
+
+module.exports = {
+  uploadSingleFile,
+  uploadMultipleFiles,
+  removeFile,
+  getFileUrl,
+  processUploadedFile
 };
